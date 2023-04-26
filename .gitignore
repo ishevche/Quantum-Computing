@@ -1,0 +1,8 @@
+venv
+__pycache__
+.idea
+
+.ipynb_checkpoints
+oracle.pdf
+tmp*
+test*
