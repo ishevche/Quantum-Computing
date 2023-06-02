@@ -2,6 +2,8 @@ venv
 __pycache__
 .idea
 
+out
+
 .ipynb_checkpoints
 oracle.pdf
 tmp*

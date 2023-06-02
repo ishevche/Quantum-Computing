@@ -1,0 +1,346 @@
+% Chapter Template
+
+\chapter{Considered algorithms} % Main chapter title
+
+\label{ch:considered-algorithms} % Change X to a consecutive number; for referencing this chapter elsewhere, use \ref{ChapterX}
+
+As a part of this project I have researched and implemented four basic algorithms:
+\begin{itemize}
+    \item Deutsch-Jozsa Algorithm
+    \item Bernstein-Vazirani Algorithm
+    \item Quantum Fourier Transform
+    \item Quantum Phase Estimation
+\end{itemize}
+
+Also as a part of this project I have developed a laboratory work that aims to tech students basic operations using Qiskit development kit.
+
+Let me explain researched algorithms in details.
+
+
+\section{Deutsch-Jozsa Algorithm}
+
+The Deutsch-Jozsa is a quantum algorithm proposed by David Deutsch and Richard Jozsa in 1992\cite{DeutschJozsa}.
+Although of little current practical use, it is one of the simplest examples of a quantum algorithm that is exponentially faster than any possible classical algorithm, that makes it a good entry point.
+
+\subsection{Problem statement}
+
+In Deutsch-Jozsa problem we have a boolean function $f : \{0, 1\}^n \rightarrow \{0, 1\}$ that is known to be either balanced or constant.
+The task is to determine whether the function $f$ is balanced or constant.
+
+Constant function is the function that maps every $n$-bit input the same result (either 0 or 1).
+
+Balanced function is the function that maps exactly a half of the inputs to 0 and a half to 1.
+
+\subsection{Classic solution}
+
+Solving this problem using classical algorithms requires $2^{n-1} + 1$ evaluations of the function $f$ for different inputs.
+If among all received values there are different ones, then the function is balanced, and it is constant otherwise.
+
+Worth noticing that problem is not always solvable using smaller amount of evaluations.
+Really, in case of $2^{n-1}$ evaluations of function $f$ all received values could appear to be equal and in this case it is not possible to distinguish the following two cases:
+\begin{itemize}
+    \item the function is constant and for every input, output is the same
+    \item the function is balanced and all evaluated inputs are from the same half
+\end{itemize}
+
+\subsection{Hadamard transform}\label{subsec:h_transform}
+
+Before proceeding to quantum solution of Deutsch-Jozsa problem I would like to discuss Hadamard transformation first.
+
+Let assume $n$ qubits in one of standard basis states.
+In that case each qubit is in one of its basis state, either $\ket{0}$ or $\ket{1}$, so we can represent the whole system as ket vector with consequently written states of each individual qubit.
+For example, system of two qubits where the first one is in state $\ket{1}$ and the second one is in state $\ket{0}$ can be written in the following way: $\ket{\psi} = \ket{1}_1 \otimes \ket{0}_2 = \ket{10}$
+
+Furthermore notation writen inside ket vector can be considered as binary representation of some number, so we can represent our system in the following way: $\ket{\psi} = \ket{1}_1 \otimes \ket{0}_2 = \ket{10} = \ket{2}$
+
+Let now apply Hadamard gate to every qubit in this system.
+Applying this gate each qubit transforms in the following way:
+\begin{align*}
+    \ket{0} \rightarrow \frac{1}{\sqrt {2}}(\ket{0} + \ket{1}) \\
+    \ket{1} \rightarrow \frac{1}{\sqrt {2}}(\ket{0} - \ket{1})
+\end{align*}
+so after applying Hadamard gates to system $\ket{2}$ it will be in the following state:
+\begin{align*}
+    H^{\otimes 2}\ket{2} &= H\ket{1}_1 \otimes H\ket{0}_2 \\
+    &= \frac{1}{\sqrt {2}}(\ket{0}_1 - \ket{1}_1) \otimes \frac{1}{\sqrt {2}}(\ket{0}_2 + \ket{1}_2) \\
+    &= \frac{1}{2} (\ket{00} + \ket{01} - \ket{10} - \ket{11})
+\end{align*}
+
+In this example we can see that state $\ket{2}$ transformed in superposition of all basis states with magnitude $\pm\frac{1}{2}$.
+In fact, it is so for every basis state of $n$-qubit system with magnitude equal $\pm\frac{1}{\sqrt {2^n}}$ for general case.
+
+The actual sign of the magnitude depends on a basis state $y$ and initial state $x$.
+Each bit in state $y$ introduce $-$ sign if both this bit in $y$ equals $1$ and this bit in initial state $x$ also equals $1$, or simply if this bit in number $x \, AND \, y$ equals $1$, where $AND$ is bitwise AND operation.
+
+Let's define operation $x \cdot y$ to be sum of bits of the number $x \, AND \, y$.
+Then Hadamard transformation of the state $\ket{x}$ can be written in the following way:
+\begin{align} \label{h_transformation}
+    \ket{x} \rightarrow \frac{1}{\sqrt {2^n}} \sum_{y=0}^{2^n-1} (-1)^{x \cdot y} \ket{y}
+\end{align}
+
+\subsection{Quantum solution}\label{subsec:dj-quantum-solution}
+
+The role of the function in quantum computer plays an oracle.
+Oracle is a circuit that receives $n+1$ qubits as input in state $\ket{x}\otimes\ket{y}$ and transform it into state $\ket{x}\otimes\ket{y\oplus f(x)}$, where $\oplus$ is addition modulo 2.
+
+Using the quantum properties we can receive the answer to the problem using oracle only once.
+The whole algorithm can be described by following steps:
+\begin{enumerate}
+    \item Prepare the state.
+    We have to prepare the state of $n+1$ qubits, first $n$ of which are initialized to $\ket{0}$ and the last one initialized to $\ket{1}$:
+    \[\ket{\psi_0} = \ket{0^{\otimes n}}\otimes\ket{1}\]
+    \item Apply Hadamard gate to each qubit.
+    Using equation~\eqref{h_transformation} for the first $n$ qubits we can receive the following representation of transformed system:
+    \begin{align*}
+        \ket{\psi_1} &= \frac{1}{\sqrt{2^{n+1}}} \sum_{x=0}^{2^n-1}\left((-1)^{x\cdot0}\ket{x}\otimes\left(\ket{0} - \ket{1}\right)\right) \\
+        &=\frac{1}{\sqrt{2^{n+1}}} \sum_{x=0}^{2^n-1}\left(\ket{x}\otimes\left(\ket{0} - \ket{1}\right)\right)
+    \end{align*}
+    \item Apply the oracle.
+    After applying the state can be represented in the following way:
+    \begin{align*}
+        \ket{\psi_2} &= \frac{1}{\sqrt{2^{n+1}}} \sum_{x=0}^{2^n-1}\left(\ket{x}\otimes\left(\ket{0\oplus f(x)} - \ket{1\oplus f(x)}\right)\right) \\
+        &=  \frac{1}{\sqrt{2^{n+1}}} \sum_{x=0}^{2^n-1}\left(\ket{x}\otimes(-1)^{f(x)}\left(\ket{0} - \ket{1}\right)\right)
+    \end{align*}
+    as $f(x)$ is either $1$ or $0$.
+    \item Apply Hadamard gate to each of the first $n$ qubits.
+    At this point we can discard the last qubit, and the state of first $n$ qubits before applying gates can be represented in the following way:
+    \[
+        \ket{\psi_2} = \frac{1}{\sqrt{2^{n}}} \sum_{x=0}^{2^n-1}(-1)^{f(x)}\ket{x}
+    \]
+    Applying equation~\eqref{h_transformation} we can represent the resulting state in the following form:
+    \begin{align*}
+        \ket{\psi_3} &= \frac{1}{2^{n}} \sum_{x=0}^{2^n-1}(-1)^{f(x)}\sum_{y=0}^{2^n-1}(-1)^{x\cdot y}\ket{y} \\
+        &= \frac{1}{2^{n}} \sum_{y=0}^{2^n-1} \sum_{x=0}^{2^n-1}\left((-1)^{f(x)}(-1)^{x\cdot y}\right)\ket{y}
+    \end{align*}
+    Here $x\cdot y$ -- sum of bits of number $x \, AND \, y$ modulo 2, where $AND$ is bitwise AND operation.
+    \item Perform measurement on the first $n$ qubits.
+    Magnitude of state $\ket{0^{\otimes n}}$ in system is the following:
+    \[
+        \frac{1}{2^{n}}\sum_{x=0}^{2^n-1}\left((-1)^{f(x)}(-1)^{x\cdot 0}\right) = \frac{1}{2^{n}}\sum_{x=0}^{2^n-1}(-1)^{f(x)}
+    \]
+    so if function $f$ is constant $\sum(-1)^{f(x)}=\pm2^n$ and otherwise $\sum(-1)^{f(x)}=0$, as half of addends are $1$ and other half are $-1$.
+    After measurement for constant function we will definitely receive $0$ as result, and for balanced function we will definitely not receive $0$.
+\end{enumerate}
+
+\section{Bernstein-Vazirani Algorithm}
+
+The Bernstein-Vazirani is a quantum algorithm invented by Ethan Bernstein and Umesh Vazirani in 1997~\cite{BernsteinVazirani}.
+This algorithm solves an extension of the Deutsch-Jozsa.
+
+\subsection{Problem statement}
+
+In Bernstein-Vazirani problem we have a boolean function $f:\{0, 1\}^n \rightarrow \{0, 1\}$ that is known to calculate dot product between input $x$ and secret string $s \in \{0, 1\}^n$ modulo 2.
+The task is to determine the secret string.
+
+\subsection{Classic solution}
+
+Solving the problem using classical algorithms requires $n$ evaluations of the function with inputs $x = 2^i$ for $i=\overline{0,n-1}$.
+The result of the evaluation at point $2^i$ is the $i'$s bit of the secret string:
+\[
+    f(2^i) = s_n\cdot0\oplus s_{n-1}\cdot0\oplus\ldots\oplus s_{i}\cdot1\oplus\ldots\oplus s_{0}\cdot0 = s_i
+\]
+
+Using this we can discover every bit of the secret string.
+
+\subsection{Quantum solution}
+
+Similarly to Deutsch-Jozsa solution~\eqref{subsec:dj-quantum-solution} the role of the function plays an oracle, that transforms state of $n+1$ qubits $\ket{x}\otimes\ket{y}$ into another state $\ket{x}\otimes\ket{y\oplus f(x)}$.
+
+Bernstein-Vazirani problem is also can be solved using oracle only once.
+The algorithm can be divided on the following steps:
+\begin{enumerate}
+    \item Prepare the state.
+    Prepare the state of $n+1$ qubits, first $n$ of which are initialized to $\ket{0}$ and the last one initialized to $\ket{1}$:
+    \[\ket{\psi_0} = \ket{0^{\otimes n}}\otimes\ket{1}\]
+    \item Apply Hadamard gate to each qubit.
+    Using equation~\eqref{h_transformation} for the first $n$ qubits we can receive the following representation of transformed system:
+    \begin{align*}
+        \ket{\psi_1} &= \frac{1}{\sqrt{2^{n+1}}} \sum_{x=0}^{2^n-1}\left((-1)^{x\cdot0}\ket{x}\otimes\left(\ket{0} - \ket{1}\right)\right) \\
+        &=\frac{1}{\sqrt{2^{n+1}}} \sum_{x=0}^{2^n-1}\left(\ket{x}\otimes\left(\ket{0} - \ket{1}\right)\right)
+    \end{align*}
+    \item Apply the oracle.
+    After applying the state can be represented in the following way:
+    \begin{align*}
+        \ket{\psi_2} &= \frac{1}{\sqrt{2^{n+1}}} \sum_{x=0}^{2^n-1}\left(\ket{x}\otimes\left(\ket{0\oplus f(x)} - \ket{1\oplus f(x)}\right)\right) \\
+        &= \frac{1}{\sqrt{2^{n+1}}} \sum_{x=0}^{2^n-1}\left(\ket{x}\otimes(-1)^{f(x)}\left(\ket{0} - \ket{1}\right)\right) \\
+        &= \frac{1}{\sqrt{2^{n+1}}} \sum_{x=0}^{2^n-1}\left((-1)^{s\cdot x}\ket{x}\otimes\left(\ket{0} - \ket{1}\right)\right)
+    \end{align*}
+    as $f(x)$ is either $1$ or $0$.
+    \item Apply Hadamard gate to each of the first $n$ qubits.
+    At this point we can discard the last qubit, and the state of first $n$ qubits before applying gates can be represented in the following way:
+    \[
+        \ket{\psi_2} = \frac{1}{\sqrt{2^{n}}} \sum_{x=0}^{2^n-1}(-1)^{s\cdot x}\ket{x}
+    \]
+    From the equation~\eqref{h_transformation} we know that applying Hadamard transformation to state $\ket{s}$ transforms it into state $\ket{\psi_2}$.
+    As applying Hadamard gate to the qubit twice does not change the state of it, inverse operation for Hadamard transformation is the transformation itself, so applying Hadamard transformation on state $\ket{\psi_2}$ transforms it into state $\ket{\psi_3} = \ket{s}$.
+    \item Perform measurement on the first $n$ qubits.
+    As the system after previous step is in one of the basis states $\ket{s}$, the measurement will definitely possess the values $s$ -- unknown secret string.
+\end{enumerate}
+
+\section{Quantum Fourier Transform}
+
+The Fourier transform is widely used throughout different algorithms on classical computers.
+The quantum Fourier transform is just quantum implementation of the discrete Fourier transform.
+The algorithm itself does not possess any interesting features, in fact, this algorithm simply transforms the state to a different basis.
+Nevertheless, this algorithm is often used as a part of other algorith, most notably Shor's factoring and quantum phase estimation algorithms.
+
+\subsection{Relation to discrete Fourier transform}
+
+The discrete Fourier transform is a procedure that transforms an input vector $(x_1, x_2, \ldots x_N)$ into vector $(y_1, y_2, \ldots y_N)$ using the following rule:
+\begin{align} \label{ft_rule}
+    y_k = \frac{1}{\sqrt{N}}\sum_{j=0}^{N-1} x_j\cdot \omega^{jk}
+\end{align}
+where $\omega = e^{\frac{2\pi i}{N}}$.
+
+The quantum Fourier transform transforms an input state $\ket{X} = \sum_{k=0}^{N-1} x_k\ket{k}$ into state $\ket{Y} = \sum_{k=0}^{N-1} y_k\ket{k}$ using the same rule as discrete Fourier transform~\eqref{ft_rule}
+
+\subsection{Math behind quantum Fourier transform}
+
+Let consider one of the basis states $\ket{X} = \ket{t}$ and derive how quantum Fourier transform will transform this state.
+From the definition, the following holds:
+\[
+    y_k = \frac{1}{\sqrt{N}}\sum_{j=0}^{N-1}x_j\cdot\omega^{jk} = \frac{1}{\sqrt{N}}\cdot\omega^{tk}
+\]
+so, resulting state can be represented by following formula:
+\[
+    QFT\ket{t} = \frac{1}{\sqrt{N}}\sum_{j=0}^{N-1} \omega^{tj}\ket{j}
+\]
+Let define $n$ to be number of qubits in state $\ket{X}$, then $N=2^n$ as $N$ equals the number of basis states for this system.
+Considering this we can rewrite new state in the following way:
+\[
+    QFT\ket{t} = \frac{1}{\sqrt{N}}\sum_{j=0}^{N-1}e^{2\pi i \frac{tj}{2^n}}\ket{j}
+\]
+We can represent $j$ in its binary form: $j = j_1 j_2 \ldots j_n$, where $j_1$ is most significant bit.
+Then $j / 2^n = \sum_{k=1}^{n} j_k/2^k$, and the state can be rewritten:
+\[
+    QFT\ket{t} = \frac{1}{\sqrt{N}}\sum_{j=0}^{N-1}e^{2\pi i\left( \sum_{k=1}^{n} j_k/2^k \right)t}\ket{j}
+\]
+Now we can expand exponential of sum into product of exponential:
+\[
+    QFT\ket{t} = \frac{1}{\sqrt{N}} \sum_{j=0}^{N-1} \prod_{k=1}^{n} e^{2\pi i j_k t/2^k}\ket{j}
+\]
+And finally using similar logic as in section~\ref{subsec:h_transform} we can expand this sum of all basis states as tensor product across all individual qubits:
+\begin{align} \label{eq_qft}
+    QFT\ket{t} = \frac{1}{\sqrt{N}} \bigotimes_{k=1}^{n}\left( \ket{0} + e^{2\pi i t/2^k} \ket{1} \right)
+\end{align}
+
+\subsection{Circuit implementation}
+
+To implement this algorithm we will use two gates: Hadamard gate ($H$) and controlled rotation gate ($CROT_k$).
+
+From equation~\eqref{h_transformation} for $n=1$, we know that Hadamard gate performs the following transformation:
+\[
+    \ket{x} \mapsto \frac{1}{\sqrt {2}} \left( \ket{0} + (-1)^x \ket{1} \right)
+\]
+and using Euler's formula ($e^{\pi i} + 1 = 0$) we can rewrite it in the following way:
+\[
+    \ket{x} \mapsto \frac{1}{\sqrt {2}} \left( \ket{0} + \exp \left( \frac{2 \pi i}{2} x \right) \ket{1} \right)
+\]
+
+Unlike Hadamard's, $CROT_k$ is two-qubit gate.
+The first of two qubits is control qubit, its value defines whether the rotation will be performed on the second qubit.
+If control qubit is in state $\ket{1}$, then controlled bit transforms in the following way:
+\begin{align*}
+    \ket{0} &\mapsto \ket{0} \\
+    \ket{1} &\mapsto \exp\left( \frac{2\pi i}{2^k} \right)\ket{1}
+\end{align*}
+
+This transformation is a very similar to Hadamard transformation, and can be written down in the similar way:
+\[
+    \ket{x} \mapsto \exp\left( \frac{2\pi i}{2^k} x \right)\ket{x}
+\]
+so applying gate $CROT_k$ to the two-qubit state results in the following state:
+\begin{align*}
+    CROT_k\ket{0x} &= \ket{0x} \\
+    CROT_k\ket{1x} &= \exp\left( \frac{2\pi i}{2^k} x \right)\ket{1x}
+\end{align*}
+or simplifying it even more:
+\[
+    CROT_k\ket{xy} = \exp\left( \frac{2\pi i}{2^k} xy \right)\ket{xy}
+\]
+
+Given these two gates we can proceed to algorithm implementation.
+Firstly, consider transformation of the first qubit:
+\[
+    \ket{t_1} \mapsto \frac{1}{\sqrt {2}}\left( \ket{0} + e^{ 2\pi i t/2^n }\ket{1} \right)
+\]
+As $t_1$ is the most significant bit in binary representation of $t$ it worth to write down $t$ using its bits:
+\[
+    t = 2^{n-1}t_1 + 2^{n-2}t_2 + \ldots + 2^{0}t_n
+\]
+Using this representation we can rewrite transformed bit in the following way:
+\begin{align*}
+    \ket{t_1} &\mapsto \frac{1}{\sqrt {2}}\left( \ket{0} + \exp \left( \frac{2\pi i}{2^n} \left( 2^{n-1}t_1 + 2^{n-2}t_2 + \ldots + 2^{0}t_n \right) \right)\ket{1} \right) \\
+    \ket{t_1} &\mapsto \frac{1}{\sqrt {2}}\left( \ket{0} + \exp \left( \frac{2\pi i}{2} t_1 + \frac{2\pi i}{2^2}t_2 + \ldots + \frac{2\pi i}{2^n}t_n \right)\ket{1} \right)
+\end{align*}
+
+To achieve such transformation we can apply Hadamard gate to the first qubit and then consequently apply $CROT_i$ gates with qubit $i$ as control one for every $i$.
+
+Using similar sequence of qubits $2 \dots n$ we can achieve the following state:
+\begin{align*}
+    \frac{1}{\sqrt {2}} \left[ \ket{0} + \exp \left( \frac{2\pi i}{2^n}x \right)\ket{1} \right] \otimes
+    \frac{1}{\sqrt {2}} \left[ \ket{0} + \exp \left( \frac{2\pi i}{2^{n-1}}x \right)\ket{1} \right] \otimes \dots \\
+    \dots \otimes
+    \frac{1}{\sqrt {2}} \left[ \ket{0} + \exp \left( \frac{2\pi i}{2^2}x \right)\ket{1} \right] \otimes
+    \frac{1}{\sqrt {2}} \left[ \ket{0} + \exp \left( \frac{2\pi i}{2^1}x \right)\ket{1} \right]
+\end{align*}
+which is almost the target state, the only differance is reversed order of qubits.
+
+
+\section{Quantum Phase Estimation}
+
+The quantum phase estimation is a quantum algorithm initially introduced by Alexei Kitaev in 1995~\cite{QPE}.
+This algorithm acts as a main part for many other quantum algorithms.
+
+\subsection{Problem statement}
+
+Given a unitary matrix $U$ and a quantum state $\ket{\phi}$ that represents a eigenvector of matrix $U$.
+Since $U$ is unitary, every eigenvalue has norm $1$, so the following holds: $U\ket{\phi} = e^{2\pi i \theta}\ket{\phi}$.
+The task is to estimate the value of $\theta$
+
+\subsection{Solution}
+
+In quantum mechanics for every unitary matrix there is a corresponding operator.
+Let consider operator $U$ that utilizes given unitary matrix.
+Given this operator and state $\ket{\phi}$ the algorithm can be described by following steps:
+\begin{enumerate}
+    \item Prepare the state.
+    We have to prepare the state of $n+1$ qubits, the last one initialized in state $\ket{\phi}$ and first $n$ of which are initialized in state $\ket{0}$.
+    This qubits will be used to store value $2^n\theta$ on them, so the bigger n is, more precise result will be received.
+    Initial state can be represented in a following way:
+    \[
+        \ket{\psi_0} = \ket{0}^{\otimes n}\otimes\ket{\phi}
+    \]
+    \item Apply Hadamard gate to each of the first $n$ qubits.
+    This action will transform system in the following state:
+    \[
+        \ket{\psi_1} = \frac{1}{\sqrt {2^n}} \left( \ket{0} + \ket{1} \right)^{\otimes n}\otimes\ket{\phi}
+    \]
+    \item Apply unitary operations.
+    We apply controlled version of operator $U$ $2^j$ times onto last bit controlled by bit $n-j$ for every $j = \overline{0, n-1}$.
+    Remember that  $U$ is unitary operator with eigenvector $\ket{\phi}$, so $U\ket{\phi} = e^{2\pi i \theta}\ket{\phi}$ and as a result:
+    \[
+        U^2^j\ket{\phi} = U^{2^j-1}e^{2\pi i \theta}\ket{\phi} = \dots = e^{2\pi i 2^j\theta}\ket{\phi}
+    \]
+    Applying controlled operator for control bit $n-j$ yields the following equation:
+    \[
+        CU^2^j\left( \left( \ket{0} + \ket{1} \right) \otimes \ket{\phi} \right) = \left( \ket{0} + e^{2\pi i 2^j\theta}\ket{1} \right) \otimes \ket{\phi}
+    \]
+    And after applying all operators the state of the system will be the following:
+    \[
+        \ket{\psi_2} = \frac{1}{\sqrt {2^n}} \left( \ket{0} + e^{2\pi i 2^{n-1}\theta}\ket{1} \right) \otimes \dots \otimes \left( \ket{0} + e^{2\pi i 2^0\theta}\ket{1} \right) \otimes \ket{\phi}
+    \]
+    \item Apply inverse Fourier transform.
+    If we substitute $x = 2^n\theta$ in the equation~\eqref{eq_qft} we will receive the state of the first $n$ qubits in $\ket{\psi_2}$, so current state can be described in the following way:
+    \[
+        \ket{\psi_2} = ()QFT\ket{2^n\theta}) \otimes \ket{\phi}
+    \]
+    so after applying inverse quantum Fourier transform to first n qubits of the system, we will receive the following state:
+    \[
+        \ket{\psi_3} = \ket{2^n\theta} \otimes \ket{\phi}
+    \]
+    \item Perform measurement on the first $n$ qubits.
+    As the system after previous step is in one of the basis states $\ket{2^n\theta}$, the measurement will definitely possess the value $2^n\theta$.
+\end{enumerate}
+
+
